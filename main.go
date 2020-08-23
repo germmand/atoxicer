@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -51,5 +52,52 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	toxicityLevel := toxicity.AttributeScores.Toxicity.SummaryScore.Value
-	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Tu mensaje tiene un porcentaje de toxicidad de: %.2f%%", toxicityLevel*100))
+
+	// TODO: Separar toda la logica de discordgo a un paquete (bot) separado...
+
+	embedMessage := &discordgo.MessageEmbed{
+		Type:        discordgo.EmbedTypeRich,
+		Title:       "Advertencia",
+		Description: fmt.Sprintf("<@%s>, tu mensaje fue detectado como toxico.", m.Author.ID),
+		// Color:       10878976, Rojo
+		// Color: 12893718, Amarillo
+		Color: 1491996,
+		Fields: []*discordgo.MessageEmbedField{
+			&discordgo.MessageEmbedField{
+				Name:  "Mensaje",
+				Value: m.Content,
+			},
+			&discordgo.MessageEmbedField{
+				Name:   "Porcentaje de toxicidad",
+				Value:  fmt.Sprintf("%.2f%%", toxicityLevel*100),
+				Inline: true,
+			},
+			&discordgo.MessageEmbedField{
+				Name:   "Nivel",
+				Value:  "Leve",
+				Inline: true,
+			},
+		},
+		Author: &discordgo.MessageEmbedAuthor{
+			Name: "Atoxicer",
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Advertencia 1/3",
+		},
+	}
+
+	messageSend := &discordgo.MessageSend{
+		Embed: embedMessage,
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers},
+		},
+	}
+
+	message, err := s.ChannelMessageSendComplex(m.ChannelID, messageSend)
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+
+	fmt.Println("Success", message)
 }
