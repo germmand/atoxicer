@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/germmand/atoxicer/bot/constants"
 )
 
 func (c *AtoxicerContext) MessageCreate() func(*discordgo.Session, *discordgo.MessageCreate) {
@@ -19,6 +20,11 @@ func (c *AtoxicerContext) MessageCreate() func(*discordgo.Session, *discordgo.Me
 		}
 
 		toxicityLevel := toxicity.AttributeScores.Toxicity.SummaryScore.Value
+		toxicityType := constants.DetermineToxicType(toxicityLevel)
+		if toxicityType == constants.NonToxic {
+			return
+		}
+		embedConfig := constants.EmbedConfigTypes[toxicityType]
 
 		// TODO: Separar toda la logica de discordgo a un paquete (bot) separado...
 
@@ -26,9 +32,7 @@ func (c *AtoxicerContext) MessageCreate() func(*discordgo.Session, *discordgo.Me
 			Type:        discordgo.EmbedTypeRich,
 			Title:       "Advertencia",
 			Description: fmt.Sprintf("<@%s>, tu mensaje fue detectado como toxico.", m.Author.ID),
-			// Color:       10878976, Rojo
-			// Color: 12893718, Amarillo
-			Color: 1491996,
+			Color:       embedConfig.Color,
 			Fields: []*discordgo.MessageEmbedField{
 				&discordgo.MessageEmbedField{
 					Name:  "Mensaje",
@@ -40,8 +44,8 @@ func (c *AtoxicerContext) MessageCreate() func(*discordgo.Session, *discordgo.Me
 					Inline: true,
 				},
 				&discordgo.MessageEmbedField{
-					Name:   "Nivel",
-					Value:  "Leve",
+					Name:   "Toxicidad",
+					Value:  embedConfig.ToxicityLevel,
 					Inline: true,
 				},
 			},
