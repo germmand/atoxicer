@@ -26,8 +26,6 @@ func (c *AtoxicerContext) MessageCreate() func(*discordgo.Session, *discordgo.Me
 		}
 		embedConfig := constants.EmbedConfigTypes[toxicityType]
 
-		// TODO: Separar toda la logica de discordgo a un paquete (bot) separado...
-
 		embedMessage := &discordgo.MessageEmbed{
 			Type:        discordgo.EmbedTypeRich,
 			Title:       "Advertencia",
