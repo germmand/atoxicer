@@ -9,9 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/germmand/atoxicer/bot/constants"
 	"github.com/germmand/atoxicer/firebase"
-	"github.com/germmand/atoxicer/firebase/firestore/models"
 	"github.com/germmand/atoxicer/perspective"
-	"google.golang.org/api/iterator"
 )
 
 // MessageCreateHandler handles all of the logic for muting a user
@@ -70,20 +68,9 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	defer firestoreApp.FirestoreSession.Close()
 
-	// TODO: Move all of this into firestore package...
-	var warningUser models.Warning
-	warningCollection := firestoreApp.FirestoreSession.Collection("warnings")
-	iter := warningCollection.Where("userid", "==", m.Author.ID).Where("guildid", "==", m.GuildID).Documents(ctx)
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			log.Printf("An error has occurred reading data: %s", err)
-		}
-
-		doc.DataTo(&warningUser)
+	warningUser, err := firestoreApp.RetrieveWarning(ctx, m.Author.ID, m.GuildID)
+	if err != nil {
+		log.Printf("An error has occurred reading data: %s", err)
 	}
 
 	// We put this here because if UserID is "" it means that the record
@@ -99,9 +86,9 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		warningUser.YellowWarnings++
 	}
 
-	_, err = firestoreApp.FirestoreSession.Collection("warnings").Doc(m.Author.ID).Set(ctx, warningUser)
+	err = firestoreApp.SetWarning(ctx, m.Author.ID, warningUser)
 	if err != nil {
-		log.Printf("An error has occurred updating data: %s", err)
+		log.Printf("An error has occurred updating warning: %s", err)
 	}
 
 	messageSend := &discordgo.MessageSend{
