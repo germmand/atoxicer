@@ -9,7 +9,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/germmand/atoxicer/bot/constants"
 	"github.com/germmand/atoxicer/firebase"
+	"github.com/germmand/atoxicer/firebase/firestore/models"
 	"github.com/germmand/atoxicer/perspective"
+	"google.golang.org/api/iterator"
 )
 
 // MessageCreateHandler handles all of the logic for muting a user
@@ -68,13 +70,38 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	defer firestoreSession.Close()
 
-	_, err = firestoreSession.Collection("users").Doc(m.Author.ID).Set(ctx, map[string]interface{}{
-		"username": m.Author.Username,
-		"message":  m.Content,
-		"toxicity": toxicityLevel,
-	})
+	// TODO: Move all of this into firestore package...
+	var warningUser models.Warning
+	warningCollection := firestoreSession.Collection("warnings")
+	iter := warningCollection.Where("userid", "==", m.Author.ID).Where("guildid", "==", m.GuildID).Documents(ctx)
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("An error has occurred reading data: %s", err)
+		}
+
+		doc.DataTo(&warningUser)
+	}
+
+	// We put this here because if UserID is "" it means that the record
+	// does not exist in Firestore.
+	if warningUser.UserID == "" {
+		warningUser.UserID = m.Author.ID
+		warningUser.GuildID = m.GuildID
+	}
+
+	if toxicityType == constants.ToxicTypeHigh {
+		warningUser.RedWarnings++
+	} else if toxicityType == constants.ToxicTypeMedium {
+		warningUser.YellowWarnings++
+	}
+
+	_, err = firestoreSession.Collection("warnings").Doc(m.Author.ID).Set(ctx, warningUser)
 	if err != nil {
-		log.Fatalf("Failed adding data: %v", err)
+		log.Printf("An error has occurred updating data: %s", err)
 	}
 
 	messageSend := &discordgo.MessageSend{
