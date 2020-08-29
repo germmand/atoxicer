@@ -66,13 +66,13 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	ctx := context.Background()
 	firebaseApp := firebase.NewApp(ctx)
-	firestoreSession := firebaseApp.NewFirestoreSession(ctx)
+	firestoreApp := firebaseApp.NewFirestoreSession(ctx)
 
-	defer firestoreSession.Close()
+	defer firestoreApp.FirestoreSession.Close()
 
 	// TODO: Move all of this into firestore package...
 	var warningUser models.Warning
-	warningCollection := firestoreSession.Collection("warnings")
+	warningCollection := firestoreApp.FirestoreSession.Collection("warnings")
 	iter := warningCollection.Where("userid", "==", m.Author.ID).Where("guildid", "==", m.GuildID).Documents(ctx)
 	for {
 		doc, err := iter.Next()
@@ -99,7 +99,7 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		warningUser.YellowWarnings++
 	}
 
-	_, err = firestoreSession.Collection("warnings").Doc(m.Author.ID).Set(ctx, warningUser)
+	_, err = firestoreApp.FirestoreSession.Collection("warnings").Doc(m.Author.ID).Set(ctx, warningUser)
 	if err != nil {
 		log.Printf("An error has occurred updating data: %s", err)
 	}
