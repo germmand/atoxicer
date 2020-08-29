@@ -18,6 +18,7 @@ func init() {
 
 func main() {
 	dg := Context.BotSession
+	firestore := Context.FirestoreSession
 
 	err := dg.Open()
 	if err != nil {
@@ -26,6 +27,7 @@ func main() {
 	}
 
 	defer dg.Close()
+	defer firestore.Close()
 
 	fmt.Println("Bot is now running. Press CMD+C to Exit")
 	sc := make(chan os.Signal, 1)

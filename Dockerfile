@@ -3,6 +3,7 @@ FROM golang:1.14
 WORKDIR /app
 
 COPY . .
+COPY atoxicer-project-firebase-adminsdk.json /firebase/atoxicer-project-firebase-adminsdk.json
 
 RUN go get -v ./...
 

@@ -1,6 +1,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -53,6 +54,18 @@ func (c *AtoxicerContext) MessageCreate() func(*discordgo.Session, *discordgo.Me
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: "Advertencia 1/3",
 			},
+		}
+
+		// Add the last message a user sent into firestore.
+		// This is just a test to see if it works...
+		// Apparently context needs to be the same everywhere...
+		ctx := context.Background()
+		_, _, err = c.FirestoreSession.Collection("messages").Add(ctx, map[string]interface{}{
+			"name":    m.Author.Username,
+			"content": m.Content,
+		})
+		if err != nil {
+			log.Printf("An error has occurred while adding data: %s", err)
 		}
 
 		messageSend := &discordgo.MessageSend{
