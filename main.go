@@ -6,19 +6,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/germmand/atoxicer/context"
+	"github.com/germmand/atoxicer/bot"
 )
 
-var Context *context.AtoxicerContext
-
-func init() {
-	Context = context.New()
-	Context.SetupHandlers()
-}
-
 func main() {
-	dg := Context.BotSession
-	firestore := Context.FirestoreSession
+	token := os.Getenv("DISCORD_TOKEN_BOT")
+	dg := bot.New(token)
 
 	err := dg.Open()
 	if err != nil {
@@ -27,7 +20,6 @@ func main() {
 	}
 
 	defer dg.Close()
-	defer firestore.Close()
 
 	fmt.Println("Bot is now running. Press CMD+C to Exit")
 	sc := make(chan os.Signal, 1)

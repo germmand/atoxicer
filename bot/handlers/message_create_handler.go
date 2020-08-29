@@ -1,0 +1,87 @@
+package handlers
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/germmand/atoxicer/bot/constants"
+	"github.com/germmand/atoxicer/perspective"
+)
+
+func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+
+	perspectiveKey := os.Getenv("PERSPECTIVE_API_KEY")
+	perspectiveSession := perspective.New(perspectiveKey)
+	toxicity, err := perspectiveSession.ObtainToxicity(m.Content)
+	if err != nil {
+		return
+	}
+
+	toxicityLevel := toxicity.AttributeScores.Toxicity.SummaryScore.Value
+	toxicityType := constants.DetermineToxicType(toxicityLevel)
+	if toxicityType == constants.NonToxic {
+		return
+	}
+	embedConfig := constants.EmbedConfigTypes[toxicityType]
+
+	embedMessage := &discordgo.MessageEmbed{
+		Type:        discordgo.EmbedTypeRich,
+		Title:       "Advertencia",
+		Description: fmt.Sprintf("<@%s>, tu mensaje fue detectado como toxico.", m.Author.ID),
+		Color:       embedConfig.Color,
+		Fields: []*discordgo.MessageEmbedField{
+			&discordgo.MessageEmbedField{
+				Name:  "Mensaje",
+				Value: fmt.Sprintf("```\n%s```\n", m.Content),
+			},
+			&discordgo.MessageEmbedField{
+				Name:   "Porcentaje de toxicidad",
+				Value:  fmt.Sprintf("%.2f%%", toxicityLevel*100),
+				Inline: true,
+			},
+			&discordgo.MessageEmbedField{
+				Name:   "Toxicidad",
+				Value:  embedConfig.ToxicityLevel,
+				Inline: true,
+			},
+		},
+		Author: &discordgo.MessageEmbedAuthor{
+			Name: "Atoxicer",
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Advertencia 1/3",
+		},
+	}
+
+	// Add the last message a user sent into firestore.
+	// This is just a test to see if it works...
+	// Apparently context needs to be the same everywhere...
+	/*ctx := context.Background()
+	_, _, err = c.FirestoreSession.Collection("messages").Add(ctx, map[string]interface{}{
+		"name":    m.Author.Username,
+		"content": m.Content,
+	})
+	if err != nil {
+		log.Printf("An error has occurred while adding data: %s", err)
+	}*/
+
+	messageSend := &discordgo.MessageSend{
+		Embed: embedMessage,
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers},
+		},
+	}
+
+	message, err := s.ChannelMessageSendComplex(m.ChannelID, messageSend)
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+
+	fmt.Println("Success", message)
+}
