@@ -1,15 +1,19 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/germmand/atoxicer/bot/constants"
+	"github.com/germmand/atoxicer/firebase"
 	"github.com/germmand/atoxicer/perspective"
 )
 
+// MessageCreateHandler handles all of the logic for muting a user
+// if being too toxic.
 func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
@@ -58,17 +62,20 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		},
 	}
 
-	// Add the last message a user sent into firestore.
-	// This is just a test to see if it works...
-	// Apparently context needs to be the same everywhere...
-	/*ctx := context.Background()
-	_, _, err = c.FirestoreSession.Collection("messages").Add(ctx, map[string]interface{}{
-		"name":    m.Author.Username,
-		"content": m.Content,
+	ctx := context.Background()
+	firebaseApp := firebase.NewApp(ctx)
+	firestoreSession := firebaseApp.NewFirestoreSession(ctx)
+
+	defer firestoreSession.Close()
+
+	_, err = firestoreSession.Collection("users").Doc(m.Author.ID).Set(ctx, map[string]interface{}{
+		"username": m.Author.Username,
+		"message":  m.Content,
+		"toxicity": toxicityLevel,
 	})
 	if err != nil {
-		log.Printf("An error has occurred while adding data: %s", err)
-	}*/
+		log.Fatalf("Failed adding data: %v", err)
+	}
 
 	messageSend := &discordgo.MessageSend{
 		Embed: embedMessage,
