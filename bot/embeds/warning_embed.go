@@ -37,11 +37,9 @@ func (w *WarningEmbedConfig) GenerateEmbed() *discordgo.MessageEmbed {
 				Inline: true,
 			},
 		},
-		Author: &discordgo.MessageEmbedAuthor{
-			Name: "Atoxicer",
-		},
 		Footer: &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Infracciones %d/3 - Advertencias %d/2", w.WarningModel.RedWarnings, w.WarningModel.YellowWarnings),
+			Text:    fmt.Sprintf("Infracciones %d/3 - Advertencias %d/2", w.WarningModel.RedWarnings, w.WarningModel.YellowWarnings),
+			IconURL: "https://www.iconfinder.com/data/icons/football-26/256/football-soccer-yellow-red-card-referee-512.png",
 		},
 	}
 }
