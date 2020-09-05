@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/germmand/atoxicer/bot/helpers"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/germmand/atoxicer/bot/constants"
 	"github.com/germmand/atoxicer/firebase"
@@ -60,18 +62,17 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// TODO: Refactor this.
 		roles, err := s.GuildRoles(m.GuildID)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		var mutedRoleID string
-		for _, p := range roles {
-			if p.Name == "Penalizado" {
-				mutedRoleID = p.ID
-				break
-			}
+
+		mutedRoleID, err := helpers.FilterRoleByName(roles, os.Getenv("DISCORD_MUTED_ROLE"))
+		if err != nil {
+			log.Fatalln(err)
+			return
 		}
+
 		err = s.GuildMemberRoleAdd(warningUser.GuildID, warningUser.UserID, mutedRoleID)
 		if err != nil {
 			log.Fatalln(err)
