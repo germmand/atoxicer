@@ -10,6 +10,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/germmand/atoxicer/bot/constants"
+	"github.com/germmand/atoxicer/bot/embeds"
 	"github.com/germmand/atoxicer/firebase"
 	"github.com/germmand/atoxicer/perspective"
 )
@@ -54,6 +55,7 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	warningUser.UpdateWarningUponToxicity(toxicityType)
+	var embedMessageConfig embeds.Embed
 
 	if warningUser.RedWarnings >= 3 {
 		err = firestoreApp.DeleteWarning(ctx, m.Author.ID)
@@ -87,34 +89,13 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		log.Printf("An error has occurred updating warning: %s", err)
 	}
 
-	embedMessage := &discordgo.MessageEmbed{
-		Type:        discordgo.EmbedTypeRich,
-		Title:       "Advertencia",
-		Description: fmt.Sprintf("<@%s>, tu mensaje fue detectado como toxico.", m.Author.ID),
-		Color:       embedConfig.Color,
-		Fields: []*discordgo.MessageEmbedField{
-			&discordgo.MessageEmbedField{
-				Name:  "Mensaje",
-				Value: fmt.Sprintf("```\n%s```\n", m.Content),
-			},
-			&discordgo.MessageEmbedField{
-				Name:   "Porcentaje de toxicidad",
-				Value:  fmt.Sprintf("%.2f%%", toxicityLevel*100),
-				Inline: true,
-			},
-			&discordgo.MessageEmbedField{
-				Name:   "Toxicidad",
-				Value:  embedConfig.ToxicityLevel,
-				Inline: true,
-			},
-		},
-		Author: &discordgo.MessageEmbedAuthor{
-			Name: "Atoxicer",
-		},
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Infracciones %d/3 - Advertencias %d/2", warningUser.RedWarnings, warningUser.YellowWarnings),
-		},
+	embedMessageConfig = &embeds.WarningEmbedConfig{
+		MessageData:        m,
+		EmbedGeneralConfig: embedConfig,
+		WarningModel:       warningUser,
+		ToxicityScore:      toxicityLevel,
 	}
+	embedMessage := embedMessageConfig.GenerateEmbed()
 
 	messageSend := &discordgo.MessageSend{
 		Embed: embedMessage,
