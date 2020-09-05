@@ -82,6 +82,18 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	warningUser.UpdateWarningUponToxicity(toxicityType)
 
+	if warningUser.RedWarnings == 3 {
+		err = firestoreApp.DeleteWarning(ctx, m.Author.ID)
+		if err != nil {
+			log.Fatalln(err)
+			return
+		}
+
+		// TODO: Add logic to mute someone
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s>, has sido muteado.", m.Author.ID))
+		return
+	}
+
 	err = firestoreApp.SetWarning(ctx, m.Author.ID, warningUser)
 	if err != nil {
 		log.Printf("An error has occurred updating warning: %s", err)
