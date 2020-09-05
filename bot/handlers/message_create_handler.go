@@ -80,11 +80,7 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		warningUser.GuildID = m.GuildID
 	}
 
-	if toxicityType == constants.ToxicTypeHigh {
-		warningUser.RedWarnings++
-	} else if toxicityType == constants.ToxicTypeMedium {
-		warningUser.YellowWarnings++
-	}
+	warningUser.UpdateWarningUponToxicity(toxicityType)
 
 	err = firestoreApp.SetWarning(ctx, m.Author.ID, warningUser)
 	if err != nil {
@@ -98,11 +94,9 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 		},
 	}
 
-	message, err := s.ChannelMessageSendComplex(m.ChannelID, messageSend)
+	_, err = s.ChannelMessageSendComplex(m.ChannelID, messageSend)
 	if err != nil {
 		log.Fatalln(err)
 		return
 	}
-
-	fmt.Println("Success", message)
 }
