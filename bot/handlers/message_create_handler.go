@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
@@ -80,21 +79,24 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 			log.Fatalln(err)
 			return
 		}
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s>, has sido muteado.", m.Author.ID))
-		return
+
+		embedMessageConfig = &embeds.MutedEmbedConfig{
+			MessageData: m,
+		}
+	} else {
+		err = firestoreApp.SetWarning(ctx, m.Author.ID, warningUser)
+		if err != nil {
+			log.Printf("An error has occurred updating warning: %s", err)
+		}
+
+		embedMessageConfig = &embeds.WarningEmbedConfig{
+			MessageData:        m,
+			EmbedGeneralConfig: embedConfig,
+			WarningModel:       warningUser,
+			ToxicityScore:      toxicityLevel,
+		}
 	}
 
-	err = firestoreApp.SetWarning(ctx, m.Author.ID, warningUser)
-	if err != nil {
-		log.Printf("An error has occurred updating warning: %s", err)
-	}
-
-	embedMessageConfig = &embeds.WarningEmbedConfig{
-		MessageData:        m,
-		EmbedGeneralConfig: embedConfig,
-		WarningModel:       warningUser,
-		ToxicityScore:      toxicityLevel,
-	}
 	embedMessage := embedMessageConfig.GenerateEmbed()
 
 	messageSend := &discordgo.MessageSend{
