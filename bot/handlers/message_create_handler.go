@@ -33,6 +33,59 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	embedConfig := constants.EmbedConfigTypes[toxicityType]
 
+	ctx := context.Background()
+	firebaseApp := firebase.NewApp(ctx)
+	firestoreApp := firebaseApp.NewFirestoreSession(ctx)
+
+	defer firestoreApp.FirestoreSession.Close()
+
+	warningUser, err := firestoreApp.RetrieveWarning(ctx, m.Author.ID, m.GuildID)
+	if err != nil {
+		log.Printf("An error has occurred reading data: %s", err)
+	}
+
+	// We put this here because if UserID is "" it means that the record
+	// does not exist in Firestore.
+	if warningUser.UserID == "" {
+		warningUser.UserID = m.Author.ID
+		warningUser.GuildID = m.GuildID
+	}
+
+	warningUser.UpdateWarningUponToxicity(toxicityType)
+
+	if warningUser.RedWarnings >= 3 {
+		err = firestoreApp.DeleteWarning(ctx, m.Author.ID)
+		if err != nil {
+			log.Fatalln(err)
+			return
+		}
+
+		// TODO: Refactor this.
+		roles, err := s.GuildRoles(m.GuildID)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		var mutedRoleID string
+		for _, p := range roles {
+			if p.Name == "Penalizado" {
+				mutedRoleID = p.ID
+				break
+			}
+		}
+		err = s.GuildMemberRoleAdd(warningUser.GuildID, warningUser.UserID, mutedRoleID)
+		if err != nil {
+			log.Fatalln(err)
+			return
+		}
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s>, has sido muteado.", m.Author.ID))
+		return
+	}
+
+	err = firestoreApp.SetWarning(ctx, m.Author.ID, warningUser)
+	if err != nil {
+		log.Printf("An error has occurred updating warning: %s", err)
+	}
+
 	embedMessage := &discordgo.MessageEmbed{
 		Type:        discordgo.EmbedTypeRich,
 		Title:       "Advertencia",
@@ -58,45 +111,8 @@ func MessageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Name: "Atoxicer",
 		},
 		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Advertencia 1/3",
+			Text: fmt.Sprintf("Infracciones %d/3 - Advertencias %d/2", warningUser.RedWarnings, warningUser.YellowWarnings),
 		},
-	}
-
-	ctx := context.Background()
-	firebaseApp := firebase.NewApp(ctx)
-	firestoreApp := firebaseApp.NewFirestoreSession(ctx)
-
-	defer firestoreApp.FirestoreSession.Close()
-
-	warningUser, err := firestoreApp.RetrieveWarning(ctx, m.Author.ID, m.GuildID)
-	if err != nil {
-		log.Printf("An error has occurred reading data: %s", err)
-	}
-
-	// We put this here because if UserID is "" it means that the record
-	// does not exist in Firestore.
-	if warningUser.UserID == "" {
-		warningUser.UserID = m.Author.ID
-		warningUser.GuildID = m.GuildID
-	}
-
-	warningUser.UpdateWarningUponToxicity(toxicityType)
-
-	if warningUser.RedWarnings == 3 {
-		err = firestoreApp.DeleteWarning(ctx, m.Author.ID)
-		if err != nil {
-			log.Fatalln(err)
-			return
-		}
-
-		// TODO: Add logic to mute someone
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("<@%s>, has sido muteado.", m.Author.ID))
-		return
-	}
-
-	err = firestoreApp.SetWarning(ctx, m.Author.ID, warningUser)
-	if err != nil {
-		log.Printf("An error has occurred updating warning: %s", err)
 	}
 
 	messageSend := &discordgo.MessageSend{
